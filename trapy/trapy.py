@@ -2,8 +2,7 @@ import socket
 import utils
 from sock_utils import create_receiver_sock, wait_synack, send_syn, wait_syn, wait_confirm, send_confirmation
 import packet
-
-
+from send_utils import sender
 class Conn:
     def __init__(self, sock = None):
         if sock is None:
@@ -26,6 +25,7 @@ def listen(address: str) -> Conn:
 def accept(conn) -> Conn:
     print('WAITING FOR SYN')
     synack_pack = wait_syn(conn)
+    print('SYN RECEIVED')
     print('SYNACK SENT')
     print('WAITING CONFIRMATION')
     wait_confirm(conn, synack_pack)
@@ -46,10 +46,12 @@ def dial(address) -> Conn:
     synack_pack = wait_synack(conn, syn_pack)
     print('SYNACK RECEIVED')
     print('SENDING CONFIRMATION')
-    send_confirmation(synack_pack)
+    send_confirmation(conn, synack_pack)
+    print('CONFIRMATION SENT')
 
 def send(conn: Conn, data: bytes) -> int:
-    pass
+    sender(conn, data)
+
 
 
 def recv(conn: Conn, length: int) -> bytes:

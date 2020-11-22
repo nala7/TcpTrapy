@@ -60,8 +60,8 @@ def my_unpack(packed_data):
     pack.dest_ip = socket.inet_ntoa(ipHeader[16:20])
     pack.source_port, pack.dest_port, pack.seq_num, pack.ack, pack.flags, _, pack.data_len, pack.checksum = unpack("!HHLLbbHH", tcpHeader)
     pack.data = body
-
     return pack
+
 def get_checksum(packet: bytes) -> int:
     if len(packet) % 2 != 0:
         packet += b'\0'
