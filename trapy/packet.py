@@ -11,9 +11,9 @@ def create_flags(ack = False, syn = False):
 
     return flags
 
-def create_syn_packet(source_port, dest_port, seq_num, source_ip, dest_ip):
+def create_syn_packet(source_port, dest_port, seq_num, ack, source_ip, dest_ip):
     flags = create_flags(ack=False, syn=True)
-    packet = Packet(source_port, dest_port, seq_num, 0, source_ip, dest_ip, flags)
+    packet = Packet(source_port, dest_port, seq_num, ack, source_ip, dest_ip, flags)
     packet = packet.pack()
     return packet
 
@@ -45,7 +45,7 @@ def create_confirmation_packet(synack_pack):
     pack.ack = synack_pack.seq_num + 1
     pack.source_ip = synack_pack.dest_ip
     pack.dest_ip = synack_pack.source_ip
-    pack.flags = create_flags()
+    pack.flags = create_flags(ack = True)
     pack = pack.pack()
 
     return pack

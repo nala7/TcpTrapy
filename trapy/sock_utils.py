@@ -31,8 +31,9 @@ def create_receiver_sock():
 
 def send_syn(conn, address):
     seq_num = randint(1, 99)
+    ack = randint(1, 99)
     conn.dest_host, conn.dest_port = utils.parse_address(address)
-    pack = packet.create_syn_packet(conn.port, conn.dest_port, seq_num, conn.host, conn.dest_host)
+    pack = packet.create_syn_packet(conn.port, conn.dest_port, seq_num, ack, conn.host, conn.dest_host)
     conn.socket.sendto(pack, (conn.dest_host, conn.dest_port))
     pack = packet.my_unpack(pack)
 
@@ -58,14 +59,19 @@ def wait_confirm(conn, synack_pack):
     
     timer = Timer(TIMEOUT_INTERVAL) 
     threading.Thread(target=timer_send_pack, args=(conn, synack_pack, timer)).start()
+    synack_pack = packet.my_unpack(synack_pack)
     send_timer.start()
 
     while True:
         conf_pack, _ = conn.socket.recvfrom(1024)
         conf_pack = packet.my_unpack(conf_pack)
 
+        print(conf_pack)
+        print(synack_pack)
+        print(conf_pack.is_ack())
+        print(conf_pack.seq_num == synack_pack.ack)
+
         if conf_pack.is_ack() and conf_pack.seq_num == synack_pack.ack:
-            print('CONFIRMATION RECEIVED')
             mutex.acquire()
             send_timer.stop()
             mutex.release()
@@ -83,20 +89,12 @@ def wait_synack(conn, syn_pack):
     send_timer.start()
 
     while True:
-        print('waiting synack')
         synack_pack, _ = conn.socket.recvfrom(1024)
-        print(synack_pack)
         # if packet.get_checksum(synack_pack) is not 0xffff:
         #     continue
         synack_pack = packet.my_unpack(synack_pack)
-        print(synack_pack.is_syn())
-        print(synack_pack.is_ack())
-        print(synack_pack.seq_num == syn_pack.ack)
-        print(synack_pack.source_ip == syn_pack.dest_ip)
-        print(synack_pack.source_port == syn_pack.dest_port)
 
         if synack_pack.is_syn() and synack_pack.is_ack() and synack_pack.seq_num == syn_pack.ack and synack_pack.source_ip == syn_pack.dest_ip and synack_pack.source_port == syn_pack.dest_port:
-            print('SYNACK RECEIVED')
             mutex.acquire()
             send_timer.stop()
             mutex.release()
