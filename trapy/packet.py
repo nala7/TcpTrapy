@@ -62,15 +62,16 @@ def my_unpack(packed_data):
     pack.data = body
     return pack
 
-def get_checksum(packet: bytes) -> int:
-    if len(packet) % 2 != 0:
-        packet += b'\0'
+def get_checksum(data : bytes):
+    sum = 0
+    for index in range(0,len(data),2):
+        word = (data[index] << 8) + (data[index+1])
+        sum = sum + word
 
-    res = sum(array.array("H", packet))
-    res = (res >> 16) + (res & 0xffff)
-    res += res >> 16
+    sum = (sum >> 16) + (sum & 0xffff)
+    sum = ~sum & 0xffff
 
-    return (~res) & 0xffff
+    return sum
 
 class Packet:
     def __init__(self,
@@ -127,3 +128,6 @@ class Packet:
     def is_syn(self):
         is_syn = ((self.flags >> 1) & 1) == 1
         return(is_syn)
+    
+    def check_checksum(self):
+        return (get_checksum(self.build_tcp_header() + self.data) == self.checksum)
