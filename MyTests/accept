@@ -1,0 +1,3 @@
+import trapy
+conn = listen("10.0.0.02":8080)
+accept(conn)

@@ -7,8 +7,7 @@ import packet
 class Conn:
     def __init__(self, sock = None):
         if sock is None:
-            self.socket = create_receiver_sock()
-
+            sock = create_receiver_sock()
         self.socket = sock
 
 
@@ -18,10 +17,10 @@ class ConnException(Exception):
 
 def listen(address: str) -> Conn:
     localhost, localport = utils.parse_address(address)
-    list_conn = Conn()
-    list_conn.socket.bind((localhost, localport))
+    conn = Conn()
+    conn.socket.bind((localhost, localport))
 
-    return list_conn
+    return conn
 
 
 def accept(conn) -> Conn:
@@ -29,15 +28,18 @@ def accept(conn) -> Conn:
     synack_pack = wait_syn(conn)
     print('SYNACK SENT')
     print('WAITING CONFIRMATION')
-    wait_confirm(conn, synack_pack.ack)
+    wait_confirm(conn, synack_pack)
+    print('CONFIRMATION RECEIVED')
+
+    return conn
 
 def dial(address) -> Conn:
     print('DIALING...')
-    host, port = '10.0.0.01', 8080
+    host, port = '10.0.0.1', 8000
     conn = Conn()
-    conn.socket.bind(host, port)
-    conn.host = '10.0.0.01'
-    conn.port = 8080
+    conn.socket.bind((host, port))
+    conn.host = host
+    conn.port = port
 
     syn_pack = send_syn(conn, address)
     print('WAITING FOR SYNACK...')
