@@ -11,32 +11,48 @@ def create_flags(ack = False, syn = False):
 
     return flags
 
-def create_syn_packet(source_port, destination_port, sequence_number, source_ip, dest_ip):
+def create_syn_packet(source_port, dest_port, seq_num, source_ip, dest_ip):
     flags = create_flags(ack=False, syn=True)
-    packet = Packet(source_port, destination_port, 0, 0, source_ip, dest_ip, flags)
+    packet = Packet(source_port, dest_port, 0, 0, source_ip, dest_ip, flags)
     packet = packet.pack
     return packet
 
-def create_ack_packet(source_port, dest_port, sequence_number, source_ip, dest_ip):
+def create_ack_packet(source_port, dest_port, seq_num, source_ip, dest_ip):
     flags = create_flags(ack=True)
-    packet = Packet(source_port, dest_port, sequence_number, 0, source_ip, dest_ip, flags)
+    packet = Packet(source_port, dest_port, seq_num, 0, source_ip, dest_ip, flags)
     packet = packet.pack
     return packet
+
+def create_synack_packet(syn_pack):
+    pack = Packet()
+    pack.dest_port = syn_pack.source_port
+    pack.seq_num = syn_pack.ack
+    pack.ack = syn_pack.seq_num + 1
+    pack.dest_ip = syn_pack.source_ip
+    pack.flags = create_flags(ack = True, syn = True)
+    pack.data = syn_pack.data
+
+def create_confirmation_packet(synack_pack):
+    pack = Packet()
+    pack.dest_port = synack_pack.source_port
+    pack.seq_num = synack_pack.ack
+    pack.ack = synack_pack.seq_num + 1
+    pack.dest_ip = synack_pack.source_ip
 
 
 class Packet:
     def __init__(self,
                  source_port=0,
-                 destination_port=0,
-                 sequence_number=0,
+                 dest_port=0,
+                 seq_num=0,
                  ack=0,
                  source_ip='',
                  dest_ip='',
                  flags=0,
                  data: bytes = b''):
         self.source_port = source_port 
-        self.dest_port = destination_port
-        self.seq_num = sequence_number
+        self.dest_port = dest_port
+        self.seq_num = seq_num
         self.ack = ack
         self.data_len = len(data)
         self.data = data

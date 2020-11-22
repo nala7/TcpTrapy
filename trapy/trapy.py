@@ -1,16 +1,15 @@
 import socket
 import utils
-import sock_utils
+from sock_utils import create_receiver_sock, wait_synack, send_syn, wait_syn, wait_confirm, send_confirmation
 import packet
-from random import randint
 
 
 class Conn:
-    def _init_(self, localhost, localport):
-        self.sock = sock_utils.create_sender_sock()
-        self.localhost = localhost
-        self.localport = localport
-        self.sock.bind((localhost, localport))
+    def __init__(self, sock = None):
+        if sock is None:
+            self.socket = create_receiver_sock()
+
+        self.socket = sock
 
 
 class ConnException(Exception):
@@ -18,30 +17,34 @@ class ConnException(Exception):
 
 
 def listen(address: str) -> Conn:
-    pass
+    localhost, localport = utils.parse_address(address)
+    list_conn = Conn()
+    list_conn.socket.bind((localhost, localport))
+
+    return list_conn
 
 
 def accept(conn) -> Conn:
-    
-    
-    pass
-
+    print('WAITING FOR SYN')
+    synack_pack = wait_syn(conn)
+    print('SYNACK SENT')
+    print('WAITING CONFIRMATION')
+    wait_confirm(conn, synack_pack.ack)
 
 def dial(address) -> Conn:
+    print('DIALING...')
     host, port = '10.0.0.01', 8080
-    conn = Conn(host, port)
-    
-    seq_num = randint(0, 99)
+    conn = Conn()
+    conn.socket.bind(host, port)
+    conn.host = '10.0.0.01'
+    conn.port = 8080
 
-    dest_host, dest_port = utils.parse_address(address)
-    
-    pack = packet.create_syn_packet(port, dest_port, seq_num, host, dest_host)
-
-    conn.sock.sendto(pack, (dest_host, dest_port))
-
-
-
-
+    syn_pack = send_syn(conn, address)
+    print('WAITING FOR SYNACK...')
+    synack_pack = wait_synack(conn, syn_pack)
+    print('SYNACK RECEIVED')
+    print('SENDING CONFIRMATION')
+    send_confirmation(synack_pack)
 
 def send(conn: Conn, data: bytes) -> int:
     pass
