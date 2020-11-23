@@ -55,7 +55,6 @@ def send(conn, data):
         while next_to_send < base + window_size:
             print('Sending packet', next_to_send)
             unpacked = packet.my_unpack(packets[next_to_send])
-            print('ACK', unpacked.ack)
             udt.send(packets[next_to_send], sock, RECEIVER_ADDR)
             next_to_send += 1
 
@@ -115,14 +114,16 @@ def create_pack_list(conn, data):
 
     count = 1
     seq_num = conn.seq_num 
+    ack = conn.ack
     while True:
         start = (count - 1)*PACKET_SIZE
         end = min(count*PACKET_SIZE, len(data))
         d = data[start:end]
-        pack = packet.create_send_packet(conn, d)
+        pack = packet.create_send_packet(conn, seq_num, ack, d)
         packets.append(pack)
         count += 1
         seq_num += 1
+        ack += 1
 
         if end == len(data):
             break

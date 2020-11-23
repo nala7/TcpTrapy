@@ -3,11 +3,12 @@ import socket
 from struct import pack, unpack
 
 
-def create_flags(ack = False, syn = False):
+def create_flags(ack = False, syn = False, end = False):
     flags = 0
 
     flags += 0b00010000 if ack else 0b00000000
     flags += 0b00000010 if syn else 0b00000000
+    flags += 0b0000000 if end else 0b00000000
 
     return flags
 
@@ -23,9 +24,9 @@ def create_ack_packet(conn, ack):
     packet = packet.pack()
     return packet
 
-def create_send_packet(conn, data):
+def create_send_packet(conn, seq_num, ack, data):
     flags = create_flags(ack=False, syn=True)
-    packet = Packet(conn.source_port, conn.dest_port, conn.seq_num, conn.ack, conn.source_ip, conn.dest_ip, flags, data)
+    packet = Packet(conn.source_port, conn.dest_port, seq_num, ack, conn.source_ip, conn.dest_ip, flags, data)
     packet = packet.pack()
     return packet
 
@@ -146,6 +147,10 @@ class Packet:
     def is_syn(self):
         is_syn = ((self.flags >> 1) & 1) == 1
         return(is_syn)
+
+    def is_end(self):
+        is_end = ((self.flags) & 1) == 1
+        return(is_end)
     
     def check_checksum(self):
         return (get_checksum(self.build_ip_header() + self.build_tcp_header_no_checksum() + self.data) == self.checksum)

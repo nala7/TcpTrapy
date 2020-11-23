@@ -8,8 +8,7 @@ import udt
 # Receive packets from the sender
 def receive(conn, data):
     sock = conn.socket
-    expected_num = conn.ack + 1
-    print('fuera del while')
+    expected_num = conn.seq_num + 1
     while True:
         # Get the next packet from the sender
         pack, addr = udt.recv(sock)
@@ -28,9 +27,8 @@ def receive(conn, data):
             print('Sending ACK', expected_num)
             ack_pack = packet.create_ack_packet(conn, expected_num)
             udt.send(ack_pack, sock, addr)
-            expected_num += 1
             print('Expected', expected_num)
-            print(data)
+            expected_num += 1
         else:
             print('Sending ACK', expected_num - 1)
             ack_pack = packet.create_ack_packet(conn, expected_num - 1)
