@@ -13,6 +13,8 @@ SLEEP_INTERVAL = 0.05
 TIMEOUT_INTERVAL = 0.5
 WINDOW_SIZE = 4
 END_CONN_INTERVAL = 5
+end_conn_timer = False
+
 
 # Shared resources across threads
 base = 0
@@ -40,10 +42,10 @@ def send(conn, data):
     next_to_send = 0
     base = 0
 
-    threading.Thread(target=countdown, args=(END_CONN_INTERVAL, 'CONNECTION CLOSED WITHOUT CONFIRMATION')).start()
     # Start the receiver thread
     print('start thread')
     threading.Thread(target=receive, args=(sock,)).start()
+    threading.Thread(target=countdown, args=(END_CONN_INTERVAL,)).start()
 
     while base < num_packets:
         """
@@ -81,12 +83,14 @@ def send(conn, data):
         else:
             print('Shifting window')
             window_size = set_window_size(num_packets)
+
+        if end_conn_timer:
+            mutex.release()
+            raise Exception('WAITING TIME EXCEDED')
+    
         mutex.release()
 
     print('last pack sent')
-    # print('sending to', )
-    # # Send empty packet as sentinel
-    # udt.send(packet.Packet(), sock, RECEIVER_ADDR)
     
 # Receive thread
 def receive(sock):
@@ -113,6 +117,13 @@ def receive(sock):
         
         if not send_timer.running():
             break
+
+        mutex.acquire()
+        if end_conn_timer:
+            mutex.release()
+            raise Exception('WAITING TIME EXCEDED')
+    
+
             
 
 def create_pack_list(conn, data):
@@ -139,13 +150,18 @@ def create_pack_list(conn, data):
 
     return packets
 
-def countdown(t, message = 'WAITING TIME EXCEDED, CONNECTION FAILED'): 
+def countdown(t): 
     global mutex
     global send_timer
+    global end_conn_timer
 
+    print('counting')
     while t > -1: 
-        if (not send_timer.running()):
+        mutex.acquire()
+        if not send_timer.running():
+            mutex.release()
             return
+        mutex.release()
         mins, secs = divmod(t, 60) 
         timer = '{:02d}:{:02d}'.format(mins, secs) 
         print(timer, end="\r") 
@@ -153,5 +169,6 @@ def countdown(t, message = 'WAITING TIME EXCEDED, CONNECTION FAILED'):
         t -= 1
     mutex.acquire()
     send_timer.stop()
+    end_conn_timer = True
     mutex.release()
-    raise Exception(message)
+    raise Exception('WAITING TIME EXCEDED')
