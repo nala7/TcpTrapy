@@ -1,16 +1,14 @@
 # sender.py - The sender in the reliable data transfer protocol
-import go_packet as packet
 import socket
 import sys
 import threading
 import time
 import udt
+import packet
 
 from timer import Timer
 
 PACKET_SIZE = 512
-RECEIVER_ADDR = ('localhost', 8080)
-SENDER_ADDR = ('localhost', 0)
 SLEEP_INTERVAL = 0.05
 TIMEOUT_INTERVAL = 0.5
 WINDOW_SIZE = 4
@@ -26,30 +24,17 @@ def set_window_size(num_packets):
     return min(WINDOW_SIZE, num_packets - base)
 
 # Send thread
-def send(sock, filename):
+def send(conn, data):
     global mutex
     global base
     global send_timer
 
-    # Open the file
-    try:
-        file = open(filename, 'rb')
-    except IOError:
-        print('Unable to open', filename)
-        return
-    
-    # Add all the packets to the buffer
-    packets = []
-    seq_num = 0
-    while True:
-        data = file.read(PACKET_SIZE)
-        if not data:
-            break
-        packets.append(packet.make(seq_num, data))
-        seq_num += 1
+    sock = conn.socket
 
+    RECEIVER_ADDR = (conn.dest_ip, conn.dest_port)
+
+    packets = create_pack_list(conn, data)
     num_packets = len(packets)
-    print('I gots', num_packets)
     window_size = set_window_size(num_packets)
     next_to_send = 0
     base = 0
@@ -69,6 +54,8 @@ def send(sock, filename):
         # Send all the packets in the window
         while next_to_send < base + window_size:
             print('Sending packet', next_to_send)
+            unpacked = packet.my_unpack(packets[next_to_send])
+            print('ACK', unpacked.ack)
             udt.send(packets[next_to_send], sock, RECEIVER_ADDR)
             next_to_send += 1
 
@@ -94,9 +81,10 @@ def send(sock, filename):
             window_size = set_window_size(num_packets)
         mutex.release()
 
-    # Send empty packet as sentinel
-    udt.send(packet.make_empty(), sock, RECEIVER_ADDR)
-    file.close()
+    print('last pack sent')
+    # print('sending to', )
+    # # Send empty packet as sentinel
+    # udt.send(packet.Packet(), sock, RECEIVER_ADDR)
     
 # Receive thread
 def receive(sock):
@@ -106,7 +94,7 @@ def receive(sock):
 
     while True:
         pkt, _ = udt.recv(sock)
-        ack, _ = packet.extract(pkt)
+        ack_pack = packet.my_unpack(pkt)
 
         """
         - Actualizar la base
@@ -114,23 +102,29 @@ def receive(sock):
         - Recuerde utilizar mutex para las actualizaciones
         """
 
-        print('Got ACK', ack)
-        if (ack >= base):
+        print('Got ACK', ack_pack.ack)
+        if (ack_pack.ack >= base):
             mutex.acquire()
-            base = ack + 1
+            base = ack_pack.ack + 1
             print('Base updated', base)
             send_timer.stop()
             mutex.release()
 
-# Main function
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('Expected filename as command line argument')
-        exit()
+def create_pack_list(conn, data):
+    packets = []
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(SENDER_ADDR)
-    filename = sys.argv[1]
+    count = 1
+    seq_num = conn.seq_num 
+    while True:
+        start = (count - 1)*PACKET_SIZE
+        end = min(count*PACKET_SIZE, len(data))
+        d = data[start:end]
+        pack = packet.create_send_packet(conn, d)
+        packets.append(pack)
+        count += 1
+        seq_num += 1
 
-    send(sock, filename)
-    sock.close()
+        if end == len(data):
+            break
+
+    return packets

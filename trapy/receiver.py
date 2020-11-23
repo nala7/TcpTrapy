@@ -4,49 +4,34 @@ import socket
 import sys
 import udt
 
-RECEIVER_ADDR = ('localhost', 8080)
 
 # Receive packets from the sender
-def receive(sock, filename):
-    # Open the file for writing
-    try:
-        file = open(filename, 'wb')
-    except IOError:
-        print('Unable to open', filename)
-        return
-    
-    expected_num = 0
+def receive(conn, data):
+    sock = conn.socket
+    expected_num = conn.ack + 1
+    print('fuera del while')
     while True:
         # Get the next packet from the sender
-        pkt, addr = udt.recv(sock)
-        if not pkt:
-            break
-        seq_num, data = packet.extract(pkt)
-        print('Got packet', seq_num)
+        pack, addr = udt.recv(sock)
+        pack = packet.my_unpack(pack)
+
+        # if not pack.check_checksum():
+        #     print('check error')
+        #     continue
+        
+        print('Got packet', pack.seq_num)
+        # print(pack.data)
         
         # Send back an ACK
-        if seq_num == expected_num:
+        if pack.seq_num == expected_num:
             print('Got expected packet')
             print('Sending ACK', expected_num)
-            pkt = packet.make(expected_num)
-            udt.send(pkt, sock, addr)
+            ack_pack = packet.create_ack_packet(conn, expected_num)
+            udt.send(ack_pack, sock, addr)
             expected_num += 1
-            file.write(data)
+            print('Expected', expected_num)
+            print(data)
         else:
             print('Sending ACK', expected_num - 1)
-            pkt = packet.make(expected_num - 1)
-            udt.send(pkt, sock, addr)
-
-    file.close()
-
-# Main function
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('Expected filename as command line argument')
-        exit()
-        
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(RECEIVER_ADDR) 
-    filename = sys.argv[1]
-    receive(sock, filename)
-    sock.close()
+            ack_pack = packet.create_ack_packet(conn, expected_num - 1)
+            udt.send(ack_pack, sock, addr)

@@ -17,11 +17,17 @@ def create_syn_packet(source_port, dest_port, seq_num, ack, source_ip, dest_ip):
     packet = packet.pack()
     return packet
 
-# def create_ack_packet(source_port, dest_port, seq_num, source_ip, dest_ip):
-#     flags = create_flags(ack=True)
-#     packet = Packet(source_port, dest_port, seq_num, 0, source_ip, dest_ip, flags)
-#     packet = packet.pack()
-#     return packet
+def create_ack_packet(conn, ack):
+    flags = create_flags(ack=True)
+    packet = Packet(conn.source_port, conn.dest_port, conn.seq_num, ack, conn.source_ip, conn.dest_ip, flags)
+    packet = packet.pack()
+    return packet
+
+def create_send_packet(conn, data):
+    flags = create_flags(ack=False, syn=True)
+    packet = Packet(conn.source_port, conn.dest_port, conn.seq_num, conn.ack, conn.source_ip, conn.dest_ip, flags, data)
+    packet = packet.pack()
+    return packet
 
 def create_synack_packet(syn_pack):
     pack = Packet()    
@@ -64,8 +70,8 @@ def my_unpack(packed_data):
 
 def get_checksum(data : bytes):
     sum = 0
-    # if len(data)%2 > 0:
-    #     data.append(b'0')
+    if len(data)%2 > 0:
+        data.append(b'0')
     for index in range(0,len(data),2):
         word = (data[index] << 8) + (data[index+1])
         sum = sum + word
@@ -120,6 +126,16 @@ class Packet:
 
         return tcp_header
 
+    def build_tcp_header_no_checksum(self):
+        tcp_header = pack('!HH', self.source_port,
+                            self.dest_port)  # Source Port | Destination Port
+        tcp_header += pack('!L', self.seq_num)  # Sequence Number
+        tcp_header += pack('!L', self.ack)  # Acknowledgement Number
+        tcp_header += pack('!bb', self.flags, 0)  # Flags | Unused
+        tcp_header += pack('!H', self.data_len)  # Data Lenght
+
+        return tcp_header
+
     def pack(self, packet_flag = ''):
         return self.build_ip_header() + self.build_tcp_header() + self.data
 
@@ -132,4 +148,4 @@ class Packet:
         return(is_syn)
     
     def check_checksum(self):
-        return (get_checksum(self.build_tcp_header() + self.data) == self.checksum)
+        return (get_checksum(self.build_ip_header() + self.build_tcp_header_no_checksum() + self.data) == self.checksum)
