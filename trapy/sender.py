@@ -12,6 +12,7 @@ PACKET_SIZE = 512
 SLEEP_INTERVAL = 0.05
 TIMEOUT_INTERVAL = 0.5
 WINDOW_SIZE = 4
+END_CONN_INTERVAL = 5
 
 # Shared resources across threads
 base = 0
@@ -39,7 +40,9 @@ def send(conn, data):
     next_to_send = 0
     base = 0
 
+    threading.Thread(target=countdown, args=(END_CONN_INTERVAL, 'CONNECTION CLOSED WITHOUT CONFIRMATION')).start()
     # Start the receiver thread
+    print('start thread')
     threading.Thread(target=receive, args=(sock,)).start()
 
     while base < num_packets:
@@ -90,7 +93,6 @@ def receive(sock):
     global mutex
     global base
     global send_timer
-
     while True:
         pkt, _ = udt.recv(sock)
         ack_pack = packet.my_unpack(pkt)
@@ -108,6 +110,10 @@ def receive(sock):
             print('Base updated', base)
             send_timer.stop()
             mutex.release()
+        
+        if not send_timer.running():
+            break
+            
 
 def create_pack_list(conn, data):
     packets = []
@@ -119,7 +125,10 @@ def create_pack_list(conn, data):
         start = (count - 1)*PACKET_SIZE
         end = min(count*PACKET_SIZE, len(data))
         d = data[start:end]
-        pack = packet.create_send_packet(conn, seq_num, ack, d)
+        if end >= len(data):
+            pack = packet.create_last_send_packet(conn, seq_num, ack, d)
+        else:
+            pack = packet.create_send_packet(conn, seq_num, ack, d)
         packets.append(pack)
         count += 1
         seq_num += 1
@@ -129,3 +138,20 @@ def create_pack_list(conn, data):
             break
 
     return packets
+
+def countdown(t, message = 'WAITING TIME EXCEDED, CONNECTION FAILED'): 
+    global mutex
+    global send_timer
+
+    while t > -1: 
+        if (not send_timer.running()):
+            return
+        mins, secs = divmod(t, 60) 
+        timer = '{:02d}:{:02d}'.format(mins, secs) 
+        print(timer, end="\r") 
+        time.sleep(1) 
+        t -= 1
+    mutex.acquire()
+    send_timer.stop()
+    mutex.release()
+    raise Exception(message)

@@ -4,7 +4,7 @@ import packet
 import sender
 import receiver
 
-from sock_utils import create_receiver_sock, wait_synack, send_syn, wait_syn, wait_confirm, send_confirmation
+from sock_utils import create_receiver_sock, wait_synack, send_syn, wait_syn, wait_confirm, send_confirmation, wait_close
 
 class Conn:
     def __init__(self, sock = None):
@@ -71,8 +71,13 @@ def send(conn: Conn, data: bytes) -> int:
     sender.send(conn, data)
 
 def recv(conn: Conn, length: int) -> bytes:
-    receiver.receive(conn, length)
+    packs = receiver.receive(conn, length)
+    return packs
 
 
 def close(conn: Conn):
-    pass
+    close_packet = packet.create_close_packet(conn)
+    flags = packet.create_flags(False, False, True)
+    close_pack = wait_close(conn, close_packet)
+    conn.sock = None
+    print('Connection closed')

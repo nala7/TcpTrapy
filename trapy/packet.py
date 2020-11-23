@@ -3,12 +3,13 @@ import socket
 from struct import pack, unpack
 
 
-def create_flags(ack = False, syn = False, end = False):
+def create_flags(ack = False, syn = False, end = False, last_pack = False):
     flags = 0
 
     flags += 0b00010000 if ack else 0b00000000
     flags += 0b00000010 if syn else 0b00000000
-    flags += 0b0000000 if end else 0b00000000
+    flags += 0b00000001 if end else 0b00000000
+    flags += 0b00000100 if last_pack else 0b00000000
 
     return flags
 
@@ -26,6 +27,12 @@ def create_ack_packet(conn, ack):
 
 def create_send_packet(conn, seq_num, ack, data):
     flags = create_flags(ack=False, syn=True)
+    packet = Packet(conn.source_port, conn.dest_port, seq_num, ack, conn.source_ip, conn.dest_ip, flags, data)
+    packet = packet.pack()
+    return packet
+
+def create_last_send_packet(conn, seq_num, ack, data):
+    flags = create_flags(ack=False, syn=True, end = False, last_pack = True)
     packet = Packet(conn.source_port, conn.dest_port, seq_num, ack, conn.source_ip, conn.dest_ip, flags, data)
     packet = packet.pack()
     return packet
@@ -55,6 +62,12 @@ def create_confirmation_packet(synack_pack):
     pack.flags = create_flags(ack = True)
     pack = pack.pack()
 
+    return pack
+
+def create_close_packet(conn):
+    flags = create_flags(ack=False, syn=False, end = True)
+    pack = Packet(conn.source_port, conn.dest_port, conn.seq_num, conn.ack, conn.source_ip, conn.dest_ip, flags)
+    pack = pack.pack()
     return pack
 
 def my_unpack(packed_data):
@@ -137,7 +150,7 @@ class Packet:
 
         return tcp_header
 
-    def pack(self, packet_flag = ''):
+    def pack(self, packet_flag = '')-> bytes: 
         return self.build_ip_header() + self.build_tcp_header() + self.data
 
     def is_ack(self):
@@ -151,6 +164,10 @@ class Packet:
     def is_end(self):
         is_end = ((self.flags) & 1) == 1
         return(is_end)
+
+    def is_last_pack(self):
+        is_last = ((self.flags >> 2) & 1) == 1
+        return is_last
     
     def check_checksum(self):
         return (get_checksum(self.build_ip_header() + self.build_tcp_header_no_checksum() + self.data) == self.checksum)

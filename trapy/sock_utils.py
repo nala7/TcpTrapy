@@ -5,6 +5,7 @@ import threading
 import utils
 from random import randint
 import time
+import udt
 
 sender_sock_protocol = socket.SOCK_RAW 
 receiver_sock_protocol = socket.IPPROTO_TCP
@@ -56,6 +57,26 @@ def wait_syn(conn):
             synack_pack = packet.create_synack_packet(syn_pack)
             conn.socket.sendto(synack_pack, (syn_pack.source_ip, syn_pack.source_port))
             return synack_pack
+
+def wait_close(conn, close_pack):
+    global mutex
+    global send_timer
+
+    timer = Timer(TIMEOUT_INTERVAL - 1) 
+    conn.socket.sendto(close_pack, (conn.dest_host, conn.dest_port))
+    threading.Thread(target=timer_send_pack, args=(conn, close_pack, timer)).start()
+    send_timer.start()
+
+    threading.Thread(target=countdown, args=(END_CONN_INTERVAL, 'CONNECTION CLOSED WITHOUT CONFIRMATION')).start()
+    while True:
+        tup = udt.recv(conn.socket)
+        close_pack = packet.my_unpack(tup[0])
+
+        if close_pack.is_end():
+            mutex.acquire()
+            send_timer.stop()
+            mutex.release()
+            return close_pack
 
 def wait_confirm(conn, synack_pack):
     global mutex
@@ -118,28 +139,30 @@ def timer_send_pack(conn, pack, timer):
     global send_timer
 
     while True:
+        mutex.acquire()
         if not send_timer.running():
+            mutex.release()
             break
         if send_timer.timeout():
-            mutex.acquire()
             conn.socket.sendto(pack, (conn.dest_host, conn.dest_port))
             send_timer.start()
             mutex.release()
         time.sleep(SLEEP_INTERVAL)
 
     
-def countdown(t): 
+def countdown(t, message = 'WAITING TIME EXCEDED, CONNECTION FAILED'): 
     global mutex
-    global end_conn_timer
     global send_timer
 
     while t > -1: 
-        if (not send_timer.running()):
+        mutex.acquire()
+        if not send_timer.running():
+            mutex.release()
             return
+        mutex.release()
         mins, secs = divmod(t, 60) 
         timer = '{:02d}:{:02d}'.format(mins, secs) 
         print(timer, end="\r") 
         time.sleep(1) 
         t -= 1
-    print('CONNECTION FAILED') 
-    raise Exception('WAITING TIME EXCEDED, CONNECTION FAILED')
+    raise Exception(message)
