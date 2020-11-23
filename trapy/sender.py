@@ -43,7 +43,6 @@ def send(conn, data):
     base = 0
 
     # Start the receiver thread
-    print('start thread')
     threading.Thread(target=receive, args=(sock,)).start()
     threading.Thread(target=countdown, args=(END_CONN_INTERVAL,)).start()
 
@@ -58,30 +57,30 @@ def send(conn, data):
         mutex.acquire()
         # Send all the packets in the window
         while next_to_send < base + window_size:
-            print('Sending packet', next_to_send)
+            # print('Sending packet', next_to_send)
             unpacked = packet.my_unpack(packets[next_to_send])
             udt.send(packets[next_to_send], sock, RECEIVER_ADDR)
             next_to_send += 1
 
         # Start the timer
         if not send_timer.running():
-            print('Starting timer')
+            # print('Starting timer')
             send_timer.start()
 
         # Wait until a timer goes off or we get an ACK
         while send_timer.running() and not send_timer.timeout():
             mutex.release()
-            print('Sleeping')
+            # print('Sleeping')
             time.sleep(SLEEP_INTERVAL)
             mutex.acquire()
 
         if send_timer.timeout():
             # Looks like we timed out
-            print('Timeout')
+            # print('Timeout')
             send_timer.stop()
             next_to_send = base
         else:
-            print('Shifting window')
+            # print('Shifting window')
             window_size = set_window_size(num_packets)
 
         if end_conn_timer:
@@ -107,11 +106,11 @@ def receive(sock):
         - Recuerde utilizar mutex para las actualizaciones
         """
 
-        print('Got ACK', ack_pack.ack)
+        # print('Got ACK', ack_pack.ack)
         if (ack_pack.ack >= base):
             mutex.acquire()
             base = ack_pack.ack + 1
-            print('Base updated', base)
+            # print('Base updated', base)
             send_timer.stop()
             mutex.release()
         
@@ -155,7 +154,6 @@ def countdown(t):
     global send_timer
     global end_conn_timer
 
-    print('counting')
     while t > -1: 
         mutex.acquire()
         if not send_timer.running():

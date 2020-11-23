@@ -80,4 +80,4 @@ def close(conn: Conn):
     flags = packet.create_flags(False, False, True)
     close_pack = wait_close(conn, close_packet)
     conn.sock = None
-    print('Connection closed')
+    print('CONNECTION CLOSED')
