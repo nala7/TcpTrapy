@@ -64,6 +64,8 @@ def my_unpack(packed_data):
 
 def get_checksum(data : bytes):
     sum = 0
+    # if len(data)%2 > 0:
+    #     data.append(b'0')
     for index in range(0,len(data),2):
         word = (data[index] << 8) + (data[index+1])
         sum = sum + word

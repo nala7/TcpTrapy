@@ -109,6 +109,8 @@ def wait_synack(conn, syn_pack):
 def send_confirmation(conn, synack_pack):
     conf_pack = packet.create_confirmation_packet(synack_pack)
     conn.socket.sendto(conf_pack, (conn.dest_host, conn.dest_port))
+    conf_pack = packet.my_unpack(conf_pack)
+    return conf_pack
 
 
 def timer_send_pack(conn, pack, timer):

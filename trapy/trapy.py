@@ -52,8 +52,10 @@ def dial(address) -> Conn:
     synack_pack = wait_synack(conn, syn_pack)
     print('SYNACK RECEIVED')
     print('SENDING CONFIRMATION...')
-    send_confirmation(conn, synack_pack)
+    conf_pack = send_confirmation(conn, synack_pack)
     print('CONFIRMATION SENT')
+    conn.seq_num = conf_pack.ack + 1
+    conn.ack = conf_pack.seq_num
 
     return conn
 
